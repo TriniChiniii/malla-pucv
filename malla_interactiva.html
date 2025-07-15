@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Malla Interactiva Ingeniería Civil Electrónica PUCV</title>
+  <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #1e1e1e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #menu {
+      background-color: #252526;
+      padding: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    #menu button {
+      background: #007acc;
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    #cy {
+      flex-grow: 1;
+    }
+
+    .approved {
+      background-color: #4caf50 !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <button id="togglePrereq">Ocultar Prerrequisitos</button>
+    <button id="toggleApproved">Ocultar Aprobados</button>
+  </div>
+  <div id="cy"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const colorMap = {
+        1: '#FFB6C1', 2: '#ADD8E6', 3: '#90EE90', 4: '#FFFF99', 5: '#FFA07A',
+        6: '#9370DB', 7: '#F0E68C', 8: '#40E0D0', 9: '#FFDEAD', 10: '#D3D3D3', 11: '#F5DEB3'
+      };
+
+      const storageKey = 'malla-pucv-approved';
+      let approved = JSON.parse(localStorage.getItem(storageKey)) || [];
+      let hidePrereqs = false;
+      let hideApproved = false;
+
+      const data = [
+        { id: 'MAT1001', name: 'Fund. Matemáticas', semester: 1, prereq: [] },
+        { id: 'EIE142', name: 'Intro. Ing. Eléctrica', semester: 1, prereq: [] },
+        { id: 'FIS1121', name: 'Intro. Física', semester: 1, prereq: [] },
+        { id: 'FIN100-11', name: 'Desarrollo Integral', semester: 1, prereq: [] },
+        { id: 'QUI1140', name: 'Fund. Química', semester: 2, prereq: [] },
+        { id: 'MAT1002', name: 'Cálculo Dif. e Int.', semester: 2, prereq: ['MAT1001'] },
+        { id: 'MAT1004', name: 'Álgebra Lineal', semester: 2, prereq: ['MAT1001'] },
+        { id: 'FIS1001', name: 'Física Mecánica', semester: 2, prereq: ['MAT1001'] },
+        { id: 'EIE100', name: 'Programación', semester: 3, prereq: [] },
+        { id: 'MAT1003', name: 'Cálculo en V.V.', semester: 3, prereq: ['MAT1002'] },
+        { id: 'MAT1005', name: 'Ecuaciones Diferenciales', semester: 3, prereq: ['MAT1004'] },
+        { id: 'FIS1141', name: 'Ondas y Termodinámica', semester: 3, prereq: ['FIS1001'] },
+        { id: 'EIE211', name: 'Estadística y Probabilidades', semester: 3, prereq: ['MAT1002'] },
+        { id: 'EIE200', name: 'Programación Numérica', semester: 4, prereq: ['EIE100'] },
+        { id: 'EIE267', name: 'Electromagnetismo', semester: 4, prereq: ['MAT1003'] },
+        { id: 'EIE274', name: 'Lab. Mediciones', semester: 4, prereq: ['MAT1005'] },
+        { id: 'EIE275', name: 'Señales y Sistemas', semester: 4, prereq: ['MAT1003'] },
+        { id: 'EIE280', name: 'Teoría Circuitos 1', semester: 4, prereq: ['MAT1005'] },
+        { id: 'EIE310', name: 'Procesamiento Señales', semester: 5, prereq: ['EIE275'] },
+        { id: 'EIE326', name: 'Teoría Circuitos 2', semester: 5, prereq: ['EIE274', 'EIE280'] },
+        { id: 'EIE348', name: 'Sistemas Digitales', semester: 5, prereq: ['MAT1004'] },
+        { id: 'EIE375', name: 'Modelado Sistemas Dinámicos', semester: 5, prereq: ['EIE275'] },
+        { id: 'ING9001', name: 'Inglés 1', semester: 5, prereq: [] },
+        { id: 'EIE315', name: 'Control Automático', semester: 6, prereq: ['EIE275'] },
+        { id: 'EIE316', name: 'Fund. Máquinas Eléctricas', semester: 6, prereq: ['EIE267'] },
+        { id: 'EIE374', name: 'Circuitos Electrónicos', semester: 6, prereq: ['EIE280'] },
+        { id: 'EIE439', name: 'Estructura Computadores', semester: 6, prereq: ['EIE348'] },
+        { id: 'ING9002', name: 'Inglés 2', semester: 6, prereq: ['ING9001'] },
+        { id: 'EIE341', name: 'Lab. Control', semester: 7, prereq: ['EIE315'] },
+        { id: 'EIE376', name: 'Circuitos Electrónicos 2', semester: 7, prereq: ['EIE374'] },
+        { id: 'EIE430', name: 'Electrónica Potencia', semester: 7, prereq: ['EIE374'] },
+        { id: 'EIE434', name: 'Programación 2', semester: 7, prereq: ['EIE439'] },
+        { id: 'ING9003', name: 'Inglés 3', semester: 7, prereq: ['ING9002'] },
+        { id: 'EIE317', name: 'Automatización Industrial', semester: 8, prereq: ['EIE315'] },
+        { id: 'EIE420', name: 'Telecomunicaciones y Protocolos', semester: 8, prereq: ['EIE310'] },
+        { id: 'EIE437', name: 'Lab. Sistemas Electrónicos', semester: 8, prereq: ['EIE376'] },
+        { id: 'EIE438', name: 'Aplicaciones Conversión Electrónica', semester: 8, prereq: ['EIE430'] },
+        { id: 'EIE453', name: 'Innovación y Emprendimiento', semester: 8, prereq: ['EIE275', 'EIE274', 'EIE267', 'EIE280', 'EIE200'] },
+        { id: 'ING9004', name: 'Inglés 4', semester: 8, prereq: ['ING9003'] },
+        { id: 'EIE303', name: 'Redes de Computadores', semester: 9, prereq: ['EIE439'] },
+        { id: 'EIE400', name: 'Ing. Económica y Proyectos', semester: 9, prereq: ['EIE275', 'EIE274', 'EIE267', 'EIE280', 'EIE200'] },
+        { id: 'EII509', name: 'Gestión y Administración', semester: 9, prereq: ['EIE315', 'EIE439', 'EIE374', 'EIE316', 'ING9002'] },
+        { id: 'DER1170', name: 'Legislación y Normativas', semester: 10, prereq: ['EIE315', 'EIE439', 'EIE374', 'EIE316', 'ING9002'] },
+        { id: 'EIE620', name: 'Seminario de Proyectos', semester: 10, prereq: ['EIE317', 'EIE420', 'EIE437', 'EIE438', 'ING9004', 'EIE453'] },
+        { id: 'EIE626', name: 'Proyecto de Titulación', semester: 11, prereq: ['EIE620'] }
+      ];
+
+      const elements = [];
+
+      data.forEach(course => {
+        elements.push({
+          data: { id: course.id, label: course.name },
+          classes: approved.includes(course.id) ? 'approved' : '',
+          style: { 'background-color': colorMap[course.semester] }
+        });
+        course.prereq.forEach(pr => {
+          elements.push({ data: { source: pr, target: course.id } });
+        });
+      });
+
+      const cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements: elements,
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'label': 'data(label)',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'background-color': 'data(background-color)',
+              'color': '#000',
+              'shape': 'roundrectangle',
+              'width': 'label',
+              'padding': '8px'
+            }
+          },
+          {
+            selector: 'node.approved',
+            style: {
+              'background-color': '#4caf50',
+              'color': '#fff'
+            }
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 2,
+              'line-color': '#888',
+              'target-arrow-color': '#888',
+              'target-arrow-shape': 'triangle'
+            }
+          }
+        ],
+        layout: {
+          name: 'breadthfirst',
+          directed: true,
+          padding: 10,
+          spacingFactor: 1.75,
+          orientation: 'horizontal'
+        }
+      });
+
+      cy.nodes().on('click', evt => {
+        const node = evt.target;
+        node.toggleClass('approved');
+        approved = cy.nodes('.approved').map(n => n.id());
+        localStorage.setItem(storageKey, JSON.stringify(approved));
+      });
+
+      document.getElementById('togglePrereq').addEventListener('click', () => {
+        hidePrereqs = !hidePrereqs;
+        cy.edges().forEach(edge => edge.style('display', hidePrereqs ? 'none' : 'element'));
+      });
+
+      document.getElementById('toggleApproved').addEventListener('click', () => {
+        hideApproved = !hideApproved;
+        cy.nodes('.approved').forEach(node => node.style('display', hideApproved ? 'none' : 'element'));
+      });
+    });
+  </script>
+</body>
+</html>
